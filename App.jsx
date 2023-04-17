@@ -11,7 +11,7 @@ import {
 } from "@chatscope/chat-ui-kit-react";
 
 // Put your Open AI API KEY here
-const API_KEY = "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";
+const API_KEY = "";
 // "Explain things like you would to a 10 year old learning how to code."
 const systemMessage = {
   //  Explain things like you're talking to a software professional with 5 years of experience.
