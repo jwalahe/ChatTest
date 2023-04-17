@@ -11,7 +11,7 @@ import {
 } from "@chatscope/chat-ui-kit-react";
 
 // Put your Open AI API KEY here
-const API_KEY = "";
+const API_KEY = "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";
 // "Explain things like you would to a 10 year old learning how to code."
 const systemMessage = {
   //  Explain things like you're talking to a software professional with 5 years of experience.
@@ -46,6 +46,21 @@ function App() {
     setIsTyping(true);
     await processMessageToChatGPT(newMessages);
   };
+
+  function checkIntent(responseMessage) {
+    // List of known intents
+    const intents = ["clear_calendar", "cancel_meetings"];
+
+    // Iterate through the intents and check if the response message contains any of them
+    for (const intent of intents) {
+      if (responseMessage.toLowerCase().includes(intent)) {
+        return "Yay! I can do this";
+      }
+    }
+
+    // If none of the intents match, return null
+    return "Sorry I don't have this capability yet!";
+  }
 
   async function processMessageToChatGPT(chatMessages) {
     // The processMessageToChatGPT function takes an array of messages (chatMessages) as input, formats them, sends them to the OpenAI API,
@@ -88,12 +103,16 @@ function App() {
     // parse response JSON and extract message
     const responseData = await response.json();
     const responseMessage = responseData.choices[0].message.content;
+    //Intent: clear_calendar
+    // Entities: date - today
+    console.log(responseMessage);
+    const taskMessage = checkIntent(responseMessage);
 
     // update messages state
     const newMessages = [
       ...chatMessages,
       {
-        message: responseMessage,
+        message: taskMessage,
         sender: "ChatGPT",
       },
     ];
