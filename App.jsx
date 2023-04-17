@@ -11,13 +11,13 @@ import {
 } from "@chatscope/chat-ui-kit-react";
 
 // Put your Open AI API KEY here
-const API_KEY = "";
+const API_KEY = "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";
 // "Explain things like you would to a 10 year old learning how to code."
 const systemMessage = {
   //  Explain things like you're talking to a software professional with 5 years of experience.
   role: "system",
   content:
-    'Do the Intent and Entity Recognition for the message. Give me the output in form of "Intent:" "and Entities:".',
+    'Do the Intent and Entity Recognition for the message.  If detected entities are Date or a Date range, format them with reference to toda\'s date. Please give me the Intent, Entities, and formatted date in the following form only: "Intents:, Entities:, Formatted Date:"',
 };
 
 function App() {
@@ -49,12 +49,40 @@ function App() {
 
   function checkIntent(responseMessage) {
     // List of known intents
-    const intents = ["clear_calendar", "cancel_meetings"];
+    const intents = [
+      "clear_calendar",
+      "cancel_meetings",
+      "clear calendar",
+      "cancel meetings",
+      "cancel_calendar",
+      "clearing calendar",
+      "clearing a calendar event",
+    ];
+
+    const message = responseMessage.toLowerCase();
 
     // Iterate through the intents and check if the response message contains any of them
     for (const intent of intents) {
-      if (responseMessage.toLowerCase().includes(intent)) {
-        return "Yay! I can do this";
+      if (message.includes(intent)) {
+        // const dateRangeRegex = /Formatted Date: (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/;
+        // const dateRangeMatch = responseMessage.match(dateRangeRegex);
+
+        // if (dateRangeMatch) {
+        //   const startDate = dateRangeMatch[1];
+        //   const endDate = dateRangeMatch[2];
+
+        //   if (startDate === endDate) {
+        //     return `Looks like you want to Clear your Calendar on ${startDate}`;
+        //   }
+
+        //   return (
+        //     "Looks like you want to Clear your Calendar from " +
+        //     startDate +
+        //     " to " +
+        //     endDate
+        //   );
+        // }
+        return "Looks like you want to Clear your Calendar?";
       }
     }
 
@@ -129,7 +157,7 @@ function App() {
               scrollBehavior="smooth"
               typingIndicator={
                 isTyping ? (
-                  <TypingIndicator content="ChatGPT is typing" />
+                  <TypingIndicator content="Employee Copilot is typing" />
                 ) : null
               }
             >
