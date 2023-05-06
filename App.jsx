@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
+import { ClearCalendarActions } from "../clearCalendarActions";
 import {
   MainContainer,
   ChatContainer,
@@ -11,16 +12,17 @@ import {
 } from "@chatscope/chat-ui-kit-react";
 
 // Put your Open AI API KEY here
-const API_KEY = "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";
+const API_KEY = "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";
 // "Explain things like you would to a 10 year old learning how to code."
+const dateToday = new Date().toLocaleDateString();
 const systemMessage = {
   //  Explain things like you're talking to a software professional with 5 years of experience.
   role: "system",
-  content:
-    'Do the Intent and Entity Recognition for the message.  If detected entities are Date or a Date range, format them with reference to toda\'s date. Please give me the Intent, Entities, and formatted date in the following form only: "Intents:, Entities:, Formatted Date:"',
+  content: `Do the Intent and Entity Recognition for the message.  If detected entities are Date or a Date range, format them with respect to today\'s date which is ${dateToday}. For example: If detected date is Friday, then it is the next friday after ${dateToday}. Please give me the Intent, Entities, and formatted date in the following form only: "Intents:, Entities:, Formatted Date:". Formatted date should be like Friday, May 12th, 2023`,
 };
 
 function App() {
+  const actions = new ClearCalendarActions();
   const [messages, setMessages] = useState([
     {
       message: "Hello, I'm Employee Copilot!",
@@ -29,6 +31,8 @@ function App() {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [intentCheckSuccess, setIntentCheck] = useState(false);
+  const [entities, setEntities] = useState("");
 
   const handleSend = async (message) => {
     const newMessage = {
@@ -82,70 +86,129 @@ function App() {
         //     endDate
         //   );
         // }
-        return "Looks like you want to Clear your Calendar?";
+        return true;
       }
     }
 
     // If none of the intents match, return null
-    return "Sorry I don't have this capability yet!";
+    return false;
   }
 
   async function processMessageToChatGPT(chatMessages) {
-    // The processMessageToChatGPT function takes an array of messages (chatMessages) as input, formats them, sends them to the OpenAI API,
-    // and then processes the response from the API.
-    // messages is an array of messages
-    // Format messages for chatGPT API
-    // API is expecting objects in format of { role: "user" or "assistant", "content": "message here"}
-    // So we need to reformat
+    if (!intentCheckSuccess) {
+      // The processMessageToChatGPT function takes an array of messages (chatMessages) as input, formats them, sends them to the OpenAI API,
+      // and then processes the response from the API.
+      // messages is an array of messages
+      // Format messages for chatGPT API
+      // API is expecting objects in format of { role: "user" or "assistant", "content": "message here"}
+      // So we need to reformat
 
-    let apiMessages = chatMessages.map((messageObject) => {
-      let role = "";
-      if (messageObject.sender === "ChatGPT") {
-        role = "assistant";
+      let apiMessages = chatMessages.map((messageObject) => {
+        let role = "";
+        if (messageObject.sender === "ChatGPT") {
+          role = "assistant";
+        } else {
+          role = "user";
+        }
+        return { role: role, content: messageObject.message };
+      });
+
+      // Get the request body set up with the model we plan to use
+      // and the messages which we formatted above. We add a system message in the front to'
+      // determine how we want chatGPT to act.
+      const apiRequestBody = {
+        model: "gpt-3.5-turbo",
+        messages: [
+          systemMessage, // The system message DEFINES the logic of our chatGPT
+          ...apiMessages, // The messages from our chat with ChatGPT
+        ],
+      };
+
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(apiRequestBody),
+        }
+      );
+
+      // parse response JSON and extract message
+      const responseData = await response.json();
+      console.log(responseData);
+      console.log("responseData" + JSON.stringify(responseData));
+      const responseMessage = responseData.choices[0].message.content;
+      //Intent: clear_calendar
+      // Entities: date - today
+      console.log(responseMessage);
+      var taskMessage = "";
+      if (checkIntent(responseMessage)) {
+        const regex = /Formatted Date:\s*(\w+,\s+\w+\s+\d{1,2}[a-z]{2},\s+\d{4})/;
+        const match = responseMessage.match(regex);
+        const formattedDate = match ? match[1] : null;
+        setEntities(formattedDate);
+        taskMessage = `Looks like you want to clear the calendar on ${formattedDate}?`;
+        const newMessages = [
+          ...chatMessages,
+          {
+            message: taskMessage,
+            sender: "ChatGPT",
+          },
+        ];
+
+        setMessages(newMessages);
+        setIntentCheck(true);
+        setIsTyping(false);
       } else {
-        role = "user";
+        taskMessage = " Sorry I don't have this capability yet";
+        const newMessages = [
+          ...chatMessages,
+          {
+            message: taskMessage,
+            sender: "ChatGPT",
+          },
+        ];
+        setMessages(newMessages);
+        setEntities("");
+        setIsTyping(false);
+        setIntentCheck(false);
       }
-      return { role: role, content: messageObject.message };
-    });
 
-    // Get the request body set up with the model we plan to use
-    // and the messages which we formatted above. We add a system message in the front to'
-    // determine how we want chatGPT to act.
-    const apiRequestBody = {
-      model: "gpt-3.5-turbo",
-      messages: [
-        systemMessage, // The system message DEFINES the logic of our chatGPT
-        ...apiMessages, // The messages from our chat with ChatGPT
-      ],
-    };
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(apiRequestBody),
-    });
-
-    // parse response JSON and extract message
-    const responseData = await response.json();
-    const responseMessage = responseData.choices[0].message.content;
-    //Intent: clear_calendar
-    // Entities: date - today
-    console.log(responseMessage);
-    const taskMessage = checkIntent(responseMessage);
-
-    // update messages state
-    const newMessages = [
-      ...chatMessages,
-      {
-        message: taskMessage,
-        sender: "ChatGPT",
-      },
-    ];
-    setMessages(newMessages);
-    setIsTyping(false);
+      // API Call flow
+    } else {
+      const calendarEvents = await actions.getCalendarEvents(entities);
+      const success = await actions.cancelMeetings(calendarEvents);
+      if (success) {
+        taskMessage = `I have cleared the meetings that you host on ${entities} `;
+        const newMessages = [
+          ...chatMessages,
+          {
+            message: taskMessage,
+            sender: "ChatGPT",
+          },
+        ];
+        setMessages(newMessages);
+        setEntities("");
+        setIsTyping(false);
+        setIntentCheck(false);
+      } else {
+        taskMessage = `There has been an error, Please try again!`;
+        const newMessages = [
+          ...chatMessages,
+          {
+            message: taskMessage,
+            sender: "ChatGPT",
+          },
+        ];
+        setMessages(newMessages);
+        setEntities("");
+        setIsTyping(false);
+        setIntentCheck(false);
+      }
+    }
   }
 
   return (
